@@ -28,7 +28,15 @@ module.exports = async function(req, res) {
             return res.status(405).json({ error: 'Method Not Allowed' });
         }
 
-        const { username, password } = req.body;
+        const { username, password, deviceInfo } = req.body;
+
+        if (!username || !password || !deviceInfo) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Username, password, and deviceInfo are required' 
+            });
+        }
+
         const usersRef = db.ref('data/account');
         const userQuery = usersRef.orderByChild('username').equalTo(username);
         
@@ -42,11 +50,55 @@ module.exports = async function(req, res) {
         const userKey = Object.keys(data)[0];
         const user = data[userKey];
 
-        if (user.password === password) {
-            return res.status(200).json({ success: true, userData: user });
-        } else {
+        if (user.password !== password) {
             return res.status(401).json({ success: false, invalidCode: 1 });
         }
+
+        const existingDevices = Array.isArray(user.devices) 
+            ? user.devices 
+            : (user.devices ? Object.values(user.devices) : []);
+
+        const deviceSignature = typeof deviceInfo === 'object' 
+            ? JSON.stringify(deviceInfo) 
+            : String(deviceInfo);
+
+        const isDeviceRecognized = existingDevices.some(device => {
+            const currentSignature = typeof device === 'object' 
+                ? JSON.stringify(device) 
+                : String(device);
+            return currentSignature === deviceSignature;
+        });
+
+        let currentAlrLogined = Number(user.alrLogined) || 0;
+        const maxLogined = Number(user.maxlogined) || 1;
+
+        if (!isDeviceRecognized) {
+            if (currentAlrLogined >= maxLogined) {
+                return res.status(403).json({ 
+                    success: false, 
+                    error: 'Maximum device limit reached',
+                    alrLogined: currentAlrLogined,
+                    maxlogined: maxLogined
+                });
+            }
+
+            currentAlrLogined += 1;
+            existingDevices.push(deviceInfo);
+
+            await db.ref(`data/account/${userKey}`).update({
+                alrLogined: currentAlrLogined,
+                devices: existingDevices
+            });
+
+            user.alrLogined = currentAlrLogined;
+            user.devices = existingDevices;
+        }
+
+        return res.status(200).json({ 
+            success: true, 
+            userData: user,
+            isNewDevice: !isDeviceRecognized
+        });
 
     } catch (error) {
         console.error("Server Error:", error.message);
