@@ -54,20 +54,24 @@ module.exports = async function(req, res) {
             return res.status(401).json({ success: false, invalidCode: 1 });
         }
 
-        const existingDevices = Array.isArray(user.devices) 
-            ? user.devices 
-            : (user.devices ? Object.values(user.devices) : []);
+        let existingDevices = [];
+        if (user.devices) {
+            if (Array.isArray(user.devices)) {
+                existingDevices = user.devices.filter(Boolean);
+            } else if (typeof user.devices === 'object') {
+                existingDevices = Object.values(user.devices);
+            }
+        }
 
-        const deviceSignature = typeof deviceInfo === 'object' 
-            ? JSON.stringify(deviceInfo) 
-            : String(deviceInfo);
+        const formatDevice = (dev) => {
+            if (!dev) return '';
+            if (typeof dev === 'string') return dev;
+            return `${dev.userAgent || ''}_${dev.platform || ''}_${dev.screenResolution || ''}`;
+        };
 
-        const isDeviceRecognized = existingDevices.some(device => {
-            const currentSignature = typeof device === 'object' 
-                ? JSON.stringify(device) 
-                : String(device);
-            return currentSignature === deviceSignature;
-        });
+        const currentDeviceSig = formatDevice(deviceInfo);
+
+        const isDeviceRecognized = existingDevices.some(dev => formatDevice(dev) === currentDeviceSig);
 
         let currentAlrLogined = Number(user.alrLogined) || 0;
         const maxLogined = Number(user.maxlogined) || 1;
@@ -83,15 +87,21 @@ module.exports = async function(req, res) {
             }
 
             currentAlrLogined += 1;
-            existingDevices.push(deviceInfo);
+            
+            const newDeviceRecord = {
+                ...(typeof deviceInfo === 'object' ? deviceInfo : { device: deviceInfo }),
+                loginAt: new Date().toISOString()
+            };
+
+            const updatedDevices = [...existingDevices, newDeviceRecord];
 
             await db.ref(`data/account/${userKey}`).update({
                 alrLogined: currentAlrLogined,
-                devices: existingDevices
+                devices: updatedDevices
             });
 
             user.alrLogined = currentAlrLogined;
-            user.devices = existingDevices;
+            user.devices = updatedDevices;
         }
 
         return res.status(200).json({ 
