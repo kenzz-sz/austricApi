@@ -12,7 +12,7 @@ module.exports = async function(req, res) {
     try {
         if (!admin.apps.length) {
             if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-                throw new Error("Kunci Rahasia Firebase belum terpasang di Vercel!");
+                throw new Error("Token Invalid");
             }
             
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
