@@ -44,10 +44,20 @@ module.exports = async function(req, res) {
                 result: result
             });
         } else {
+            // 1. Ambil data gambar sebagai biner
             const arrayBuffer = await response.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
-            res.setHeader('Content-Type', contentType || 'image/png');
-            return res.status(200).send(buffer);
+            
+            // 2. Ubah buffer biner menjadi string Base64 murni
+            const base64String = buffer.toString('base64');
+            
+            // 3. Kembalikan data dalam format JSON
+            return res.status(200).json({
+                success: true,
+                type: type,
+                mimeType: contentType || 'image/png', // Memberitahu frontend tipe filenya
+                result: base64String // Ini string Base64 murni tanpa awalan data:image/...
+            });
         }
 
     } catch (error) {
