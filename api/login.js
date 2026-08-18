@@ -63,20 +63,29 @@ module.exports = async function(req, res) {
             }
         }
 
+        // PERBAIKAN 1: Hapus userAgent dari validasi signature agar update browser tidak memblokir user
+        // Sekarang hanya mengecek platform (misal: Win32, iPhone) dan Resolusi Layar
         const formatDevice = (dev) => {
             if (!dev) return '';
             if (typeof dev === 'string') return dev;
-            return `${dev.userAgent || ''}_${dev.platform || ''}_${dev.screenResolution || ''}`;
+            return `${dev.platform || ''}_${dev.screenResolution || ''}`;
         };
 
         const currentDeviceSig = formatDevice(deviceInfo);
-
         const isDeviceRecognized = existingDevices.some(dev => formatDevice(dev) === currentDeviceSig);
 
         let currentAlrLogined = Number(user.alrLogined) || 0;
         const maxLogined = Number(user.maxlogined) || 1;
 
         if (!isDeviceRecognized) {
+            
+            // PERBAIKAN 2: Jika alrLogined penuh tapi array devices masih kosong (data lama), 
+            // kita beri toleransi dan jadikan device ini sebagai device pertama.
+            if (currentAlrLogined >= maxLogined && existingDevices.length === 0) {
+                currentAlrLogined = 0; 
+            }
+
+            // Validasi normal limit device
             if (currentAlrLogined >= maxLogined) {
                 return res.status(403).json({ 
                     success: false, 
