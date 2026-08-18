@@ -33,13 +33,22 @@ module.exports = async function(req, res) {
         }
 
         const response = await fetch(apiURL[type]);
-        const result = await response.json();
+        
+        const contentType = response.headers.get('content-type');
 
-        return res.status(200).json({
-            success: true,
-            type: type,
-            result: result
-        });
+        if (contentType && contentType.includes('application/json')) {
+            const result = await response.json();
+            return res.status(200).json({
+                success: true,
+                type: type,
+                result: result
+            });
+        } else {
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            res.setHeader('Content-Type', contentType || 'image/png');
+            return res.status(200).send(buffer);
+        }
 
     } catch (error) {
         return res.status(500).json({ 
