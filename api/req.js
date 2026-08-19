@@ -96,6 +96,60 @@ export default async function handler(req, res) {
             console.error(error);
             return res.status(500).json({ success: false, message: 'An error occurred on the Vercel server' });
         }
+
+    } else if (req.body.type === "send wa") {
+        // --- BLOK BARU UNTUK SEND WA ---
+        const bodyhand = req.body.request;
+
+        if (!bodyhand || !bodyhand.to || !bodyhand.messageContent) {
+            return res.status(400).json({ success: false, message: 'Missing "to" or "messageContent"' });
+        }
+
+        const { to, messageContent } = bodyhand;
+        
+        // Pastikan kamu sudah set Environment Variables ini di Vercel
+        const PHONE_NUMBER_ID = process.env.WA_PHONE_NUMBER_ID; 
+        const ACCESS_TOKEN = process.env.WA_ACCESS_TOKEN;
+
+        if (!PHONE_NUMBER_ID || !ACCESS_TOKEN) {
+            return res.status(500).json({ success: false, message: 'WhatsApp Credentials missing in Vercel env' });
+        }
+
+        const url = `https://graph.facebook.com/v17.0/${PHONE_NUMBER_ID}/messages`;
+        
+        const payload = {
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'text',
+            text: {
+                body: messageContent,
+            },
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${ACCESS_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Opsional: Kirim notif ke Telegram juga kalau WA berhasil dikirim
+                await reqHelper.teleSend(`WA Terkirim:\n${JSON.stringify(req.body, null, 2)}`);
+                return res.status(200).json({ success: true, message: 'WhatsApp message sent!', data });
+            } else {
+                return res.status(400).json({ success: false, message: 'Rejected by Meta server', error: data });
+            }
+        } catch (error) {
+            console.error(error);
+            return res.status(500).json({ success: false, message: 'An error occurred on the Vercel server while sending WA' });
+        }
+
     } else {
         return res.status(400).json({ success: false, message: 'Invalid request type' });
     }
